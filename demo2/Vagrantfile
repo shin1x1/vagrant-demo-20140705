@@ -1,0 +1,108 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+VAGRANTFILE_API_VERSION = "2"
+
+provision = <<-EOT
+    #
+    # iptables off
+    #
+    /sbin/iptables -F
+    /sbin/service iptables stop
+    /sbin/chkconfig iptables off
+    #
+    # yum repository
+    #
+    rpm -ivh http://ftp.riken.jp/Linux/fedora/epel/6/i386/epel-release-6-8.noarch.rpm
+    rpm -ivh http://dl.iuscommunity.org/pub/ius/stable/CentOS/6/x86_64/ius-release-1.0-11.ius.centos6.noarch.rpm
+    #yum -y update
+    #
+    # ntp
+    #
+    yum -y install ntp
+    /sbin/service ntpd start
+    /sbin/chkconfig ntpd on
+    #
+    # php
+    #
+    yum -y install php55u php55u-cli php55u-pdo php55u-mbstring php55u-mcrypt php55u-pecl-memcache php55u-mysql php55u-devel php55u-common php55u-pgsql php55u-pear php55u-gd php55u-xml php55u-pecl-xdebug php55u-pecl-apcu php55u-opcache php55u-pecl-jsonc httpd
+    touch /var/log/php.log && chmod 666 /var/log/php.log
+    cp -a /vagrant/provision/php.ini /etc/php.ini
+    cp -a /vagrant/provision/xdebug.ini /etc/php.d/
+    #
+    # Apache
+    #
+    cp -a /vagrant/provision/httpd.conf /etc/httpd/conf/
+    /sbin/service httpd restart
+    /sbin/chkconfig httpd on
+    #
+    # PostgreSQL
+    #
+    rpm -ivh http://yum.postgresql.org/9.3/redhat/rhel-6-x86_64/pgdg-centos93-9.3-1.noarch.rpm
+    yum -y install postgresql93-server
+    if [ ! -f /var/lib/pgsql/9.3/data/postgresql.conf ]; then
+      su postgres -c '/usr/pgsql-9.3/bin/initdb --no-locale -D /var/lib/pgsql/9.3/data'
+      if [ -f /vagrant/postgresql.conf ]; then
+        cp -a /vagrant/provision/postgresql.conf /var/lib/pgsql/9.3/data/
+      fi
+    fi
+    /sbin/service postgresql-9.3 restart
+    /sbin/chkconfig postgresql-9.3 on
+
+    /usr/bin/createuser -d -A -S -U postgres vagrant
+    /usr/bin/createdb -Uvagrant -E UTF-8 -T template0 app
+    /usr/bin/createdb -Uvagrant -E UTF-8 -T template0 app_test
+    #
+    # Composer
+    #
+    if [ -f /share/composer.json ]; then
+      cd /share && curl -s http://getcomposer.org/installer | php
+      /usr/bin/php /share/composer.phar install
+    fi
+    #
+    # Laravel
+    #
+    cd /share && php artisan migrate && php artisan db:seed
+EOT
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.define :vbox do |vbox|
+    vbox.vm.provider :virtualbox do |provider, override|
+      override.vm.box = "opscode-centos65"
+      override.vm.box_url = "http://opscode-vm-bento.s3.amazonaws.com/vagrant/virtualbox/opscode_centos-6.5_chef-provisionerless.box"
+
+      override.vm.hostname = "demo-jaws-santo.dev"
+      override.vm.network :private_network, ip: "192.168.33.201"
+
+      provider.customize ["modifyvm", :id, "--memory", "1024"]
+    end
+  end
+
+  config.vm.provision :shell, :inline => provision
+  config.vm.synced_folder "src", "/share", type: "nfs"
+
+  config.vm.define :aws do |aws|
+    aws.vm.provider :aws do |provider, override|
+      override.vm.box = "dummy"
+
+      provider.access_key_id = ENV['AWS_ACCESS_KEY_ID'];
+      provider.secret_access_key = ENV['AWS_SECRET_ACCESS_KEY'];
+      provider.region = 'ap-northeast-1'
+      provider.instance_type = 't2.micro'
+      provider.ami = 'ami-21f49a20'
+      provider.security_groups = ['demo']
+      provider.keypair_name = 'shin1x1-air'
+      provider.tags = {
+        'Name' => 'demo-jaws-santo'
+      }
+      provider.instance_ready_timeout = 600
+      provider.user_data = <<-USER_DATA
+  #!/bin/sh
+  #sed -i -e 's/^\\(Defaults.*requiretty\\)/#\\1/' /etc/sudoers
+      USER_DATA
+      override.ssh.username = "root"
+      override.ssh.private_key_path = '~/.ssh/id_rsa'
+    end
+  end
+end
