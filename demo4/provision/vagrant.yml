@@ -1,0 +1,83 @@
+---
+- hosts: localhost
+  sudo: yes
+  tasks:
+    - name: iptables stoped and disabled
+      service: name=iptables state=stopped enabled=no
+
+    - name: ntp installed
+      yum: name=ntp
+
+    - name: ntp started and enabled
+      service: name=ntpd state=started enabled=yes
+
+    - name: IUS yum repository installed
+      yum: name=http://dl.iuscommunity.org/pub/ius/stable/CentOS/6/x86_64/ius-release-1.0-11.ius.centos6.noarch.rpm
+
+    - name: PHP 5.5.x installed
+      yum: name={{ item }} enablerepo=ius
+      with_items:
+        - php55u
+        - php55u-cli
+        - php55u-pdo
+        - php55u-mbstring
+        - php55u-mcrypt
+        - php55u-devel
+        - php55u-common
+        - php55u-pgsql
+        - php55u-pear
+        - php55u-pecl-xdebug
+        - php55u-opcache
+        - php55u-pecl-jsonc
+        - httpd
+
+    - name: PostgreSQL yum repository installed
+      yum: name=http://yum.postgresql.org/9.3/redhat/rhel-6-x86_64/pgdg-centos93-9.3-1.noarch.rpm
+
+    - name: PostgreSQL installed
+      yum: name={{ item }}
+      with_items:
+        - python-psycopg2
+        - postgresql93-server
+        - postgresql93
+
+    - name: PostgreSQL database initialized
+      command: su postgres -c '/usr/pgsql-9.3/bin/initdb --no-locale -D /var/lib/pgsql/9.3/data' creates=/var/lib/pgsql/9.3/data/postgresql.conf
+
+    - name: PostgreSQL started and enabled
+      service: name=postgresql-9.3 state=restarted enabled=yes
+
+    - name: PostgreSQL user created
+      postgresql_user: name=vagrant role_attr_flags=CREATEDB,NOSUPERUSER
+
+    - name: PostgreSQL app database created
+      postgresql_db: name=app login_user=vagrant encoding=UTF-8 template=template0
+
+    - name: PostgreSQL app_test database created
+      postgresql_db: name=app_test login_user=vagrant encoding=UTF-8 template=template0
+
+    - name: httpd.conf changed
+      copy: src=/vagrant/provision/httpd.conf dest=/etc/httpd/conf/httpd.conf
+
+    - name: composer.phar installed
+      shell: curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin creates=/usr/bin/composer
+
+    - name: composer.phar renamed to composer
+      command: mv /usr/bin/composer.phar /usr/bin/composer creates=/usr/bin/composer
+
+    - name: composer installed
+      composer: working_dir=/share no_dev=no
+
+    - name: httpd enabled and restarted
+      service: name=httpd state=restarted enabled=yes
+
+    - name: /share/app/storage is writable
+      command: chmod -R a+w /share/app/storage
+
+    - name: Database migareted
+      command: php artisan migrate chdir=/share
+
+    - name: DatabaseSeeder registerd
+      command: php artisan db:seed chdir=/share
+
+
