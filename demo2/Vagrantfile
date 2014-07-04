@@ -63,6 +63,7 @@ provision = <<-EOT
     #
     # Laravel
     #
+    chmod -R a+w /share/app/storage
     cd /share && php artisan migrate && php artisan db:seed
 EOT
 
@@ -80,7 +81,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   config.vm.provision :shell, :inline => provision
-  config.vm.synced_folder "src", "/share", type: "nfs"
+  config.vm.synced_folder "src", "/share", :mount_options => ["dmode=777", "fmode=666"]
 
   config.vm.define :aws do |aws|
     aws.vm.provider :aws do |provider, override|
@@ -89,7 +90,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       provider.access_key_id = ENV['AWS_ACCESS_KEY_ID'];
       provider.secret_access_key = ENV['AWS_SECRET_ACCESS_KEY'];
       provider.region = 'ap-northeast-1'
-      provider.instance_type = 't2.micro'
+      provider.instance_type = 't1.micro'
       provider.ami = 'ami-21f49a20'
       provider.security_groups = ['demo']
       provider.keypair_name = 'shin1x1-air'
