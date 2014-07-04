@@ -11,42 +11,16 @@ provision = <<-EOT
 EOT
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-  config.vm.define :vbox do |vbox|
-    vbox.vm.provider :virtualbox do |provider, override|
-      override.vm.box = "opscode-centos65"
-      override.vm.box_url = "http://opscode-vm-bento.s3.amazonaws.com/vagrant/virtualbox/opscode_centos-6.5_chef-provisionerless.box"
+  config.vm.provider :virtualbox do |provider, override|
+    override.vm.box = "opscode-centos65"
+    override.vm.box_url = "http://opscode-vm-bento.s3.amazonaws.com/vagrant/virtualbox/opscode_centos-6.5_chef-provisionerless.box"
 
-      override.vm.hostname = "demo-jaws-santo.dev"
-      override.vm.network :private_network, ip: "192.168.33.202"
+    override.vm.hostname = "demo-jaws-santo.dev"
+    override.vm.network :private_network, ip: "192.168.33.202"
 
-      provider.customize ["modifyvm", :id, "--memory", "1024"]
-    end
+    provider.customize ["modifyvm", :id, "--memory", "1024"]
   end
 
   config.vm.provision :shell, :inline => provision
   config.vm.synced_folder "src", "/share", :mount_options => ["dmode=777", "fmode=666"]
-
-  config.vm.define :aws do |aws|
-    aws.vm.provider :aws do |provider, override|
-      override.vm.box = "dummy"
-
-      provider.access_key_id = ENV['AWS_ACCESS_KEY_ID'];
-      provider.secret_access_key = ENV['AWS_SECRET_ACCESS_KEY'];
-      provider.region = 'ap-northeast-1'
-      provider.instance_type = 't1.micro'
-      provider.ami = 'ami-21f49a20'
-      provider.security_groups = ['demo']
-      provider.keypair_name = 'shin1x1-air'
-      provider.tags = {
-        'Name' => 'demo-jaws-santo'
-      }
-      provider.instance_ready_timeout = 600
-      provider.user_data = <<-USER_DATA
-  #!/bin/sh
-  #sed -i -e 's/^\\(Defaults.*requiretty\\)/#\\1/' /etc/sudoers
-      USER_DATA
-      override.ssh.username = "root"
-      override.ssh.private_key_path = '~/.ssh/id_rsa'
-    end
-  end
 end
