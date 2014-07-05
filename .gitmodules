@@ -1,9 +1,9 @@
 [submodule "demo2/src"]
 	path = demo2/src
 	url = https://github.com/shin1x1/laravel-table-admin-example.git
-[submodule "demo3/src"]
-	path = demo3/src
+[submodule "demo34/src"]
+	path = demo34/src
 	url = git@github.com:shin1x1/laravel-table-admin-example.git
-[submodule "demo4/src"]
-	path = demo4/src
+[submodule "demo5/src"]
+	path = demo5/src
 	url = git@github.com:shin1x1/laravel-table-admin-example.git
